@@ -1,16 +1,23 @@
 import Conversation, { IConversation } from '../models/Conversation';
 import Message, { IMessage } from '../models/Message';
 
-export const createConversation = async (userId: string, title: string, description?: string) => {
-    return await Conversation.create({ userId, title, description });
+export const createConversation = async (userId: string, title: string, groupId?: string, description?: string) => {
+    return await Conversation.create({ userId, title, groupId, description });
 };
 
 export const getConversations = async (userId: string) => {
     return await Conversation.find({ userId }).sort({ createdAt: -1 });
 };
 
-export const addMessage = async (conversationId: string, role: 'user' | 'assistant', content: string) => {
-    return await Message.create({ conversationId, role, content });
+export const addMessage = async (
+    conversationId: string,
+    role: 'user' | 'assistant',
+    text: string,
+    isQuestion: boolean = false,
+    isAnswer: boolean = false,
+    followUpMessageId?: string
+) => {
+    return await Message.create({ conversationId, role, text, isQuestion, isAnswer, followUpMessageId });
 };
 
 export const getMessages = async (conversationId: string) => {

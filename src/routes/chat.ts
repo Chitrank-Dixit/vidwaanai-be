@@ -11,8 +11,8 @@ chat.get('/conversations', async (c) => {
 
 chat.post('/conversations', async (c) => {
     const user = c.get('user');
-    const { title, description } = await c.req.json();
-    const conversation = await createConversation(user.sub, title, description);
+    const { title, description, groupId } = await c.req.json();
+    const conversation = await createConversation(user.sub, title, groupId, description);
     return c.json(conversation, 201);
 });
 
@@ -24,8 +24,15 @@ chat.get('/messages', async (c) => {
 });
 
 chat.post('/messages', async (c) => {
-    const { conversationId, content, role } = await c.req.json();
-    const message = await addMessage(conversationId, role || 'user', content);
+    const { conversationId, text, role, isQuestion, isAnswer, followUpMessageId } = await c.req.json();
+    const message = await addMessage(
+        conversationId,
+        role || 'user',
+        text,
+        isQuestion || (role === 'user'),
+        isAnswer || (role === 'assistant'),
+        followUpMessageId
+    );
     return c.json(message, 201);
 });
 
