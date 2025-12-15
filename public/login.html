@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Vidwaan AI</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; }
+        .login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 300px; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; }
+        input { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;}
+        button { width: 100%; padding: 0.5rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>Login</h2>
+        <form action="/auth/login" method="POST">
+            <!-- Hidden fields to preserve OAuth params -->
+            <input type="hidden" name="client_id" id="client_id">
+            <input type="hidden" name="redirect_uri" id="redirect_uri">
+            <input type="hidden" name="response_type" id="response_type">
+            <input type="hidden" name="scope" id="scope">
+            <input type="hidden" name="state" id="state">
+            <input type="hidden" name="code_challenge" id="code_challenge">
+            <input type="hidden" name="code_challenge_method" id="code_challenge_method">
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Sign In</button>
+        </form>
+    </div>
+    <script>
+        // Parse query params and populate hidden inputs
+        const params = new URLSearchParams(window.location.search);
+        ['client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code_challenge', 'code_challenge_method'].forEach(key => {
+            if (params.has(key)) {
+                document.getElementById(key).value = params.get(key);
+            }
+        });
+    </script>
+</body>
+</html>
