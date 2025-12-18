@@ -1,8 +1,10 @@
-import { Hono } from 'hono';
+import { OpenAPIHono } from '@hono/zod-openapi';
+import { apiReference } from '@scalar/hono-api-reference';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import connectDB from './config/database';
 import oauthRoutes from './routes/oauth';
+import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
 import { authMiddleware } from './middleware/auth';
 import dotenv from 'dotenv';
@@ -14,7 +16,7 @@ import { initSocket } from './socket';
 
 dotenv.config();
 
-const app = new Hono();
+const app = new OpenAPIHono();
 
 // Security Middleware
 app.use('*', secureHeaders());
@@ -39,8 +41,28 @@ app.use('*', cors({
 // Routes
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: new Date() }));
 
+// OpenAPI Documentation
+app.doc('/doc', {
+    openapi: '3.0.0',
+    info: {
+        version: '1.0.0',
+        title: 'Vidwaan AI Backend API',
+    },
+});
+
+app.get(
+    '/reference',
+    apiReference({
+        spec: {
+            url: '/doc',
+        },
+    })
+);
+
 // Mount OAuth Routes
 app.route('/oauth', oauthRoutes);
+// Mount Auth Routes (Direct API)
+app.route('/api/auth', authRoutes);
 
 // Helper route for form submission that needs to match the action in login.html
 // The login.html action is /auth/login. We should probably align these.
@@ -58,7 +80,7 @@ app.post('/auth/login', async (c) => {
 
 
 // Protected Routes
-const api = new Hono();
+const api = new OpenAPIHono();
 api.use('*', authMiddleware);
 
 api.route('/chat', chatRoutes);
