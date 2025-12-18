@@ -63,6 +63,36 @@ The backend exposes several API endpoints for authentication, user management, a
 | **POST** | `/refresh`  | Refresh access token | `{}` (cookies required) |
 | **POST** | `/logout`   | Logout & clear cookies | `{}` |
 
+**Examples:**
+
+```bash
+# Register
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePassword123!",
+    "fullName": "John Doe",
+    "preferredLanguage": "en"
+  }'
+
+# Login
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePassword123!"
+  }'
+
+# Refresh Token (assuming cookie handling)
+curl -X POST http://localhost:3001/api/auth/refresh \
+  -b "refreshToken=YOUR_REFRESH_TOKEN"
+
+# Logout
+curl -X POST http://localhost:3001/api/auth/logout \
+  -b "refreshToken=YOUR_REFRESH_TOKEN"
+```
+
 ### 🔑 OAuth 2.0 (`/oauth`)
 
 | Method | Endpoint | Description |
@@ -70,6 +100,23 @@ The backend exposes several API endpoints for authentication, user management, a
 | **GET** | `/authorize` | Init OAuth authorization flow |
 | **POST** | `/login-action` | Form submission for OAuth login |
 | **POST** | `/token` | Exchange code for tokens |
+
+**Examples:**
+
+```bash
+# Authorize (Browser usually initiates this)
+curl -X GET "http://localhost:3001/oauth/authorize?client_id=client_123&redirect_uri=http://localhost:3000/callback&response_type=code"
+
+# Exchange Token
+curl -X POST http://localhost:3001/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grant_type": "authorization_code",
+    "code": "AUTH_CODE",
+    "client_id": "client_123",
+    "code_verifier": "PKCE_VERIFIER"
+  }'
+```
 
 ### 💬 Chat (`/api/chat`)
 *Protected Routes: Require `Authorization: Bearer <token>`*
@@ -81,6 +128,37 @@ The backend exposes several API endpoints for authentication, user management, a
 | **GET** | `/messages` | Get messages | `?conversationId=<id>` |
 | **POST** | `/messages` | Send a message | `{ conversationId, text, role, ... }` |
 
+**Examples:**
+
+```bash
+# Get Conversations
+curl -X GET http://localhost:3001/api/chat/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Create Conversation
+curl -X POST http://localhost:3001/api/chat/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "New Chat",
+    "description": "Discussing project details"
+  }'
+
+# Get Messages
+curl -X GET "http://localhost:3001/api/chat/messages?conversationId=CONVO_ID" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Send Message
+curl -X POST http://localhost:3001/api/chat/messages \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "CONVO_ID",
+    "text": "Hello, AI!",
+    "role": "user"
+  }'
+```
+
 ### ⚙️ System & Docs
 
 | Method | Endpoint | Description |
@@ -88,6 +166,19 @@ The backend exposes several API endpoints for authentication, user management, a
 | **GET** | `/api/health` | Health check |
 | **GET** | `/doc` | OpenAPI Specification (JSON) |
 | **GET** | `/reference` | Interactive API Documentation |
+
+**Examples:**
+
+```bash
+# Health Check
+curl http://localhost:3001/api/health
+
+# OpenAPI Specification
+curl http://localhost:3001/doc
+
+# Interactive Documentation
+curl http://localhost:3001/reference
+```
 
 ---
 
