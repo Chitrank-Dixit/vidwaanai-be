@@ -28,6 +28,8 @@ export const queryAgent = async (question: string, sessionId: string): Promise<A
 
         if (!response.ok) {
             console.error(`[AgentService] Agent API error: ${response.status} ${response.statusText}`);
+            const errorText = await response.text();
+            console.error(`[AgentService] Error Body: ${errorText}`);
             throw new Error(`Agent API responded with status: ${response.status}`);
         }
 
@@ -50,10 +52,13 @@ export const createAgentSession = async (): Promise<string> => {
 
         if (!response.ok) {
             console.error(`[AgentService] Create Session Error: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`[AgentService] Create Session Error Body: ${errorText}`);
             throw new Error(`Failed to create agent session: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log(`[AgentService] Created session ID: ${data.session_id}`);
         return data.session_id;
     } catch (error) {
         console.error('[AgentService] Error creating session:', error);
