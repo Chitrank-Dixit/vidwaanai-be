@@ -11,6 +11,8 @@ chat.get('/conversations', async (c) => {
 
 chat.post('/conversations', async (c) => {
     const user = c.get('user');
+    console.log('[DEBUG] POST /conversations - User from context:', user);
+    console.log('[DEBUG] POST /conversations - user.sub:', user?.sub);
     const { title, description, groupId } = await c.req.json();
     const conversation = await createConversation(user.sub, title, groupId, description);
     return c.json(conversation, 201);
