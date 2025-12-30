@@ -7,6 +7,7 @@ export interface IConversation extends Document {
     description?: string;
     questionId?: mongoose.Types.ObjectId;
     answerId?: mongoose.Types.ObjectId;
+    agentSessionId?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -19,6 +20,7 @@ const ConversationSchema = new Schema<IConversation>(
         description: { type: String },
         questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
         answerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+        agentSessionId: { type: String },
     },
     { timestamps: true }
 );

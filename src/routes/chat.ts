@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { createConversation, getConversations, addMessage, getMessages } from '../services/chatService';
+import { queryAgent, createAgentSession } from '../services/agentService';
+import mongoose from 'mongoose';
 
 const chat = new Hono();
 
@@ -11,11 +13,46 @@ chat.get('/conversations', async (c) => {
 
 chat.post('/conversations', async (c) => {
     const user = c.get('user');
-    console.log('[DEBUG] POST /conversations - User from context:', user);
-    console.log('[DEBUG] POST /conversations - user.sub:', user?.sub);
-    const { title, description, groupId } = await c.req.json();
-    const conversation = await createConversation(user.sub, title, groupId, description);
-    return c.json(conversation, 201);
+    const { title, description, groupId, question, message } = await c.req.json();
+
+    const userQuestion = question || message || title;
+    if (!userQuestion) {
+        return c.json({ error: 'Question or message is required' }, 400);
+    }
+
+    // Generate conversation ID upfront for DB
+    const conversationId = new mongoose.Types.ObjectId().toString();
+
+    try {
+        // 1. Create Session with Agent
+        const agentSessionId = await createAgentSession();
+
+        // 2. Query Agent API
+        const agentResponse = await queryAgent(userQuestion, agentSessionId);
+
+        // 3. Asynchronously save to DB
+        (async () => {
+            try {
+                await createConversation(
+                    user.sub,
+                    title || userQuestion.substring(0, 50),
+                    groupId,
+                    description,
+                    conversationId,
+                    agentSessionId // Pass Agent's UUID
+                );
+                await addMessage(conversationId, 'user', userQuestion, true, false);
+                await addMessage(conversationId, 'assistant', agentResponse.answer, false, true);
+            } catch (err) {
+                console.error('Async DB Save Error:', err);
+            }
+        })();
+
+        return c.json(agentResponse, 201);
+    } catch (error: any) {
+        console.error('Agent API Error:', error);
+        return c.json({ error: 'Agent service unavailable or error', details: error.message }, 503);
+    }
 });
 
 chat.get('/messages', async (c) => {

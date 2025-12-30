@@ -1,8 +1,8 @@
 import Conversation, { IConversation } from '../models/Conversation';
 import Message, { IMessage } from '../models/Message';
 
-export const createConversation = async (userId: string, title: string, groupId?: string, description?: string) => {
-    return await Conversation.create({ userId, title, groupId, description });
+export const createConversation = async (userId: string, title: string, groupId?: string, description?: string, _id?: string, agentSessionId?: string) => {
+    return await Conversation.create({ _id, userId, title, groupId, description, agentSessionId });
 };
 
 export const getConversations = async (userId: string) => {
