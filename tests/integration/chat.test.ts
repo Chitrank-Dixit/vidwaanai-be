@@ -14,6 +14,22 @@ let accessToken = '';
 const MOCK_SESSION_ID = 'test-session-uuid';
 const MOCK_AGENT_ANSWER = 'This is a mock agent answer';
 
+// Mock the Agent Service module to avoid context loss in async background tasks
+mock.module('../../src/services/agentService', () => {
+    return {
+        createAgentSession: mock(() => Promise.resolve(MOCK_SESSION_ID)),
+        queryAgent: mock(() => {
+            console.error('[MOCK] queryAgent called');
+            return Promise.resolve({
+                answer: MOCK_AGENT_ANSWER,
+                session_id: MOCK_SESSION_ID,
+                confidence: 0.9,
+                sources: []
+            });
+        })
+    };
+});
+
 describe('Chat API Integration Tests', () => {
     let originalFetch: typeof global.fetch;
 
@@ -55,23 +71,7 @@ describe('Chat API Integration Tests', () => {
     });
 
     it('POST /api/chat/conversations - Should flow correctly (Create Session -> Query Agent -> Save DB)', async () => {
-        // Mock fetch to handle both session creation and query
-        global.fetch = mock((urlOrRequest) => {
-            const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest instanceof Request ? urlOrRequest.url : String(urlOrRequest);
-
-            if (url.includes('/session/create')) {
-                return Promise.resolve(new Response(JSON.stringify({ session_id: MOCK_SESSION_ID }), { status: 200 }));
-            }
-            if (url.includes('/query')) {
-                return Promise.resolve(new Response(JSON.stringify({
-                    answer: MOCK_AGENT_ANSWER,
-                    session_id: MOCK_SESSION_ID,
-                    confidence: 0.9,
-                    sources: []
-                }), { status: 200 }));
-            }
-            return Promise.resolve(new Response('Not Found', { status: 404 }));
-        });
+        // global.fetch mock removed as we use module mock
 
         const res = await server.fetch(new Request('http://localhost/api/chat/conversations', {
             method: 'POST',
@@ -104,5 +104,45 @@ describe('Chat API Integration Tests', () => {
         expect(messages[0].text).toBe('Hello Agent');
         expect(messages[1].role).toBe('assistant');
         expect(messages[1].text).toBe(MOCK_AGENT_ANSWER);
+    });
+
+    it('POST /api/chat/messages - Should trigger Agent Query for user messages', async () => {
+        // 1. Create a conversation first (Seed DB directly since we control MOCK_SESSION_ID)
+        const conversation = await Conversation.create({
+            userId: TEST_USER_ID,
+            title: 'Message Test',
+            agentSessionId: MOCK_SESSION_ID
+        });
+        const conversationId = conversation._id.toString();
+
+        // 2. Mock Agent Query specifically for follow up (optional, generic mock works too)
+        // existing mock handles /query -> MOCK_AGENT_ANSWER
+
+        // 3. Post a follow-up message
+        const followUpText = 'Follow up question';
+        const res = await server.fetch(new Request('http://localhost/api/chat/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({
+                conversationId,
+                role: 'user',
+                text: followUpText,
+                isQuestion: true
+            })
+        }));
+
+        expect(res.status).toBe(201);
+
+        // 4. Wait for Async Agent Query
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 5. Verify Messages in DB
+        const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
+        // Should have: User Message, Agent Message
+        expect(messages.length).toBe(2);
+        expect(messages[0].text).toBe(followUpText);
+        expect(messages[0].role).toBe('user');
+        expect(messages[1].text).toBe(MOCK_AGENT_ANSWER);
+        expect(messages[1].role).toBe('assistant');
     });
 });

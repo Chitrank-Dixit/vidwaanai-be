@@ -9,6 +9,10 @@ export const getConversations = async (userId: string) => {
     return await Conversation.find({ userId }).sort({ createdAt: -1 });
 };
 
+export const getConversationById = async (conversationId: string) => {
+    return await Conversation.findById(conversationId);
+};
+
 export const addMessage = async (
     conversationId: string,
     role: 'user' | 'assistant',

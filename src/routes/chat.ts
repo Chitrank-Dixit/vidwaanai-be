@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createConversation, getConversations, addMessage, getMessages } from '../services/chatService';
+import { createConversation, getConversations, addMessage, getMessages, getConversationById } from '../services/chatService';
 import { queryAgent, createAgentSession } from '../services/agentService';
 import mongoose from 'mongoose';
 
@@ -64,15 +64,44 @@ chat.get('/messages', async (c) => {
 
 chat.post('/messages', async (c) => {
     const { conversationId, text, role, isQuestion, isAnswer, followUpMessageId } = await c.req.json();
-    const message = await addMessage(
-        conversationId,
-        role || 'user',
-        text,
-        isQuestion || (role === 'user'),
-        isAnswer || (role === 'assistant'),
-        followUpMessageId
-    );
-    return c.json(message, 201);
+
+    try {
+        // 1. Save the User's Message
+        const userMessage = await addMessage(
+            conversationId,
+            role || 'user',
+            text,
+            isQuestion || (role === 'user'),
+            isAnswer || (role === 'assistant'),
+            followUpMessageId
+        );
+
+        // 2. If it's a user question, query the Agent
+        if ((role === 'user' || !role) && (isQuestion || role === 'user')) {
+            const conversation = await getConversationById(conversationId);
+            if (conversation && conversation.agentSessionId) {
+                // Async Agent Query & Save
+                (async () => {
+                    try {
+                        const agentResponse = await queryAgent(text, conversation.agentSessionId!);
+                        await addMessage(
+                            conversationId,
+                            'assistant',
+                            agentResponse.answer,
+                            false,
+                            true
+                        );
+                    } catch (err) {
+                        console.error('[ChatRoute] Helper Agent Query Error:', err);
+                    }
+                })();
+            }
+        }
+
+        return c.json(userMessage, 201);
+    } catch (err: any) {
+        return c.json({ error: err.message }, 500);
+    }
 });
 
 export default chat;
