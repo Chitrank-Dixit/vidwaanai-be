@@ -57,8 +57,9 @@ chat.post('/conversations', async (c) => {
 
 chat.get('/messages', async (c) => {
     const conversationId = c.req.query('conversationId');
+    const messageId = c.req.query('messageId');
     if (!conversationId) return c.json({ error: 'conversationId required' }, 400);
-    const messages = await getMessages(conversationId);
+    const messages = await getMessages(conversationId, messageId);
     return c.json({ messages });
 });
 
@@ -77,28 +78,28 @@ chat.post('/messages', async (c) => {
         );
 
         // 2. If it's a user question, query the Agent
+        let agentAnswer: string | null = null;
         if ((role === 'user' || !role) && (isQuestion || role === 'user')) {
             const conversation = await getConversationById(conversationId);
             if (conversation && conversation.agentSessionId) {
-                // Async Agent Query & Save
-                (async () => {
-                    try {
-                        const agentResponse = await queryAgent(text, conversation.agentSessionId!);
-                        await addMessage(
-                            conversationId,
-                            'assistant',
-                            agentResponse.answer,
-                            false,
-                            true
-                        );
-                    } catch (err) {
-                        console.error('[ChatRoute] Helper Agent Query Error:', err);
-                    }
-                })();
+                try {
+                    const agentResponse = await queryAgent(text, conversation.agentSessionId!);
+                    agentAnswer = agentResponse.answer;
+                    await addMessage(
+                        conversationId,
+                        'assistant',
+                        agentResponse.answer,
+                        false,
+                        true
+                    );
+                } catch (err) {
+                    console.error('[ChatRoute] Helper Agent Query Error:', err);
+                }
             }
         }
 
-        return c.json(userMessage, 201);
+        const responsePayload = userMessage.toObject ? { ...userMessage.toObject(), answer: agentAnswer } : { ...userMessage, answer: agentAnswer };
+        return c.json(responsePayload, 201);
     } catch (err: any) {
         return c.json({ error: err.message }, 500);
     }
