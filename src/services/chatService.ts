@@ -6,8 +6,15 @@ export const createConversation = async (userId: string, title: string, groupId?
     return await Conversation.create({ _id, userId, title, groupId, description, agentSessionId });
 };
 
-export const getConversations = async (userId: string) => {
-    return await Conversation.find({ userId }).sort({ createdAt: -1 });
+export const getConversations = async (userId: string, page: number = 1, limit: number = 20) => {
+    const skip = (page - 1) * limit;
+    const total = await Conversation.countDocuments({ userId });
+    const conversations = await Conversation.find({ userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    return { conversations, total, page, limit };
 };
 
 const resolveConversationId = async (id: string): Promise<string | null> => {

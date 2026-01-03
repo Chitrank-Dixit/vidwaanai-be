@@ -7,8 +7,23 @@ const chat = new Hono();
 
 chat.get('/conversations', async (c) => {
     const user = c.get('user');
-    const conversations = await getConversations(user.sub);
-    return c.json({ conversations });
+    const page = parseInt(c.req.query('page') || '1', 10);
+    const limit = parseInt(c.req.query('limit') || '20', 10);
+
+    const { conversations, total } = await getConversations(user.sub, page, limit);
+
+    const previousPageOffset = page > 1 ? (page - 2) * limit : null;
+    const nextPageOffset = (page * limit) < total ? page * limit : null;
+
+    return c.json({
+        conversations,
+        pagination: {
+            page,
+            total,
+            previousPageOffset,
+            nextPageOffset
+        }
+    });
 });
 
 chat.post('/conversations', async (c) => {
