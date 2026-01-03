@@ -35,11 +35,14 @@ services:
       - MONGODB_URI=mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-password123}@mongodb:27017/vidwaan?authSource=admin
       - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
       - JWT_SECRET=${JWT_SECRET}
+      - AGENT_API_URL=http://host.docker.internal:8001/api/v1/agent/query
     depends_on:
       mongodb:
         condition: service_healthy
     networks:
       - vidwaan-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     volumes:
       - ./src:/app/src

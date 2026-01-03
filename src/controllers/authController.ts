@@ -71,7 +71,7 @@ export class AuthController {
             }
 
             // Generate Tokens
-            const accessToken = generateAccessToken({ userId: user._id, role: user.role, email: user.email });
+            const accessToken = generateAccessToken({ sub: user._id, role: user.role, email: user.email });
             const refreshTokenStr = generateRefreshToken({ userId: user._id }); // Opaque to client, but JWT internally
 
             // Store Refresh Token
@@ -148,7 +148,7 @@ export class AuthController {
             // For now, simpler implementation: just issue new access token. 
             // The plan says "Scope: Single refresh endpoint", "Used for: Getting new access tokens".
 
-            const newAccessToken = generateAccessToken({ userId: user._id, role: user.role, email: user.email });
+            const newAccessToken = generateAccessToken({ sub: user._id, role: user.role, email: user.email });
 
             return c.json({
                 success: true,

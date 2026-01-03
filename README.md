@@ -123,16 +123,21 @@ curl -X POST http://localhost:3001/oauth/token \
 
 | Method | Endpoint | Description | Query Params / Body |
 | :--- | :--- | :--- | :--- |
-| **GET** | `/conversations` | Get user conversations | - |
+| **GET** | `/conversations` | Get user conversations | `?page=<num>&limit=<num>` |
 | **POST** | `/conversations` | Create new conversation | `{ title, description, groupId }` |
-| **GET** | `/messages` | Get messages | `?conversationId=<id>` |
+| **GET** | `/messages` | Get messages | `?conversationId=<id>`, `?messageId=<id>` (optional) |
 | **POST** | `/messages` | Send a message | `{ conversationId, text, role, ... }` |
+| **DELETE** | `/conversations/:id` | Delete conversation | - |
 
 **Examples:**
 
 ```bash
-# Get Conversations
-curl -X GET http://localhost:3001/api/chat/conversations \
+# Get Conversations (Paginated)
+curl -X GET "http://localhost:3001/api/chat/conversations?page=1&limit=20" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Create Conversation
+curl -X DELETE http://localhost:3001/api/chat/conversations/CONVO_ID \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 
 # Create Conversation
@@ -144,8 +149,12 @@ curl -X POST http://localhost:3001/api/chat/conversations \
     "description": "Discussing project details"
   }'
 
-# Get Messages
+# Get All Messages in Conversation
 curl -X GET "http://localhost:3001/api/chat/messages?conversationId=CONVO_ID" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Get Thread filtered by Message ID (Follow-ups)
+curl -X GET "http://localhost:3001/api/chat/messages?conversationId=CONVO_ID&messageId=MSG_ID" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 
 # Send Message
