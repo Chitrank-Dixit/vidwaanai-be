@@ -127,12 +127,17 @@ curl -X POST http://localhost:3001/oauth/token \
 | **POST** | `/conversations` | Create new conversation | `{ title, description, groupId }` |
 | **GET** | `/messages` | Get messages | `?conversationId=<id>`, `?messageId=<id>` (optional) |
 | **POST** | `/messages` | Send a message | `{ conversationId, text, role, ... }` |
+| **DELETE** | `/conversations/:id` | Delete conversation | - |
 
 **Examples:**
 
 ```bash
 # Get Conversations
 curl -X GET http://localhost:3001/api/chat/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Delete Conversation
+curl -X DELETE http://localhost:3001/api/chat/conversations/CONVO_ID \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 
 # Create Conversation

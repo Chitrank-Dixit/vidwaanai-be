@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createConversation, getConversations, addMessage, getMessages, getConversationById } from '../services/chatService';
+import { createConversation, getConversations, addMessage, getMessages, getConversationById, deleteConversation } from '../services/chatService';
 import { queryAgent, createAgentSession } from '../services/agentService';
 import mongoose from 'mongoose';
 
@@ -61,6 +61,25 @@ chat.get('/messages', async (c) => {
     if (!conversationId) return c.json({ error: 'conversationId required' }, 400);
     const messages = await getMessages(conversationId, messageId);
     return c.json({ messages });
+});
+
+chat.delete('/conversations/:conversationId', async (c) => {
+    const user = c.get('user');
+    const conversationId = c.req.param('conversationId');
+
+    if (!conversationId) {
+        return c.json({ error: 'Conversation ID required' }, 400);
+    }
+
+    try {
+        const success = await deleteConversation(conversationId, user.sub);
+        if (!success) {
+            return c.json({ error: 'Conversation not found or unauthorized' }, 404);
+        }
+        return c.json({ message: 'Conversation deleted successfully' }, 200);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
 });
 
 chat.post('/messages', async (c) => {

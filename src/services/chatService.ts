@@ -53,3 +53,18 @@ export const getMessages = async (conversationId: string, messageId?: string) =>
 
     return await Message.find(query).sort({ createdAt: 1 });
 };
+
+export const deleteConversation = async (conversationId: string, userId: string): Promise<boolean> => {
+    const resolvedId = await resolveConversationId(conversationId);
+    if (!resolvedId) return false;
+
+    // Ensure the conversation belongs to the requesting user
+    const conversation = await Conversation.findOne({ _id: resolvedId, userId });
+    if (!conversation) return false;
+
+    // Delete conversation and associated messages
+    await Conversation.deleteOne({ _id: resolvedId });
+    await Message.deleteMany({ conversationId: resolvedId });
+
+    return true;
+};
