@@ -3,6 +3,7 @@ import { validateClient, createAuthorizationCode, exchangeCodeForToken } from '.
 import User from '../models/User';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { AuthService } from '../services/authService';
 
 const oauth = new Hono();
 
@@ -40,8 +41,13 @@ oauth.post('/login-action', async (c) => { // Renamed slightly to avoid conflict
 
     // Validate User
     const user = await User.findOne({ username });
-    // In production, compare hashed password
-    if (!user || user.password !== password) {
+
+    let isValid = false;
+    if (user) {
+        isValid = await AuthService.verifyPassword(password as string, user.passwordHash);
+    }
+
+    if (!user || !isValid) {
         return c.redirect(`/oauth/authorize?error=access_denied&client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&state=${state}`);
     }
 

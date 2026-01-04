@@ -48,6 +48,7 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./public:/app/public
+      - ./bunfig.toml:/app/bunfig.toml
 
 volumes:
   mongodb_data:
