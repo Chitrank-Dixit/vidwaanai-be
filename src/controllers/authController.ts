@@ -1,51 +1,37 @@
 import { Context } from 'hono';
 import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
-import User from '../models/User';
-import RefreshToken from '../models/RefreshToken';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../services/tokenService';
-import bcrypt from 'bcryptjs';
-import mongoose from 'mongoose';
+import { AuthService } from '../services/authService';
 
 export class AuthController {
     static async register(c: Context) {
         try {
             const body = await c.req.json();
-            const { email, password, fullName, preferredLanguage } = body;
+            const { email, password, fullName } = body;
 
             if (!email || !password || !fullName) {
                 return c.json({ success: false, error: 'Missing required fields' }, 400);
             }
 
-            const existingUser = await User.findOne({ email });
-            if (existingUser) {
-                return c.json({ success: false, error: 'Email already registered' }, 409);
-            }
-
-            const salt = await bcrypt.genSalt(10);
-            const passwordHash = await bcrypt.hash(password, salt);
-
-            const user = new User({
-                username: email, // Default username to email
-                email,
-                fullName,
-                passwordHash,
-                preferences: { language: preferredLanguage || 'en' }
-            });
-
-            await user.save();
-
-            return c.json({
-                success: true,
-                message: 'User registered successfully',
-                data: {
-                    id: user._id,
-                    email: user.email,
-                    fullName: user.fullName,
-                    role: user.role,
-                    status: user.status,
-                    createdAt: user.createdAt
+            try {
+                const user = await AuthService.registerUser(body);
+                return c.json({
+                    success: true,
+                    message: 'User registered successfully',
+                    data: {
+                        id: user._id,
+                        email: user.email,
+                        fullName: user.fullName,
+                        role: user.role,
+                        status: user.status,
+                        createdAt: user.createdAt
+                    }
+                }, 201);
+            } catch (err: any) {
+                if (err.message === 'Email already registered') {
+                    return c.json({ success: false, error: err.message }, 409);
                 }
-            }, 201);
+                throw err;
+            }
         } catch (error: any) {
             console.error('Registration Error:', error);
             return c.json({ success: false, error: error.message }, 500);
@@ -56,64 +42,42 @@ export class AuthController {
         try {
             const { email, password } = await c.req.json();
 
-            const user = await User.findOne({ email });
-            if (!user) {
-                return c.json({ success: false, error: 'Invalid credentials' }, 401);
-            }
+            try {
+                const result = await AuthService.loginUser(email, password);
+                const { user, accessToken, refreshTokenStr, expiresAt } = result;
 
-            const isMatch = await bcrypt.compare(password, user.passwordHash);
-            if (!isMatch) {
-                return c.json({ success: false, error: 'Invalid credentials' }, 401);
-            }
+                setCookie(c, 'refreshToken', refreshTokenStr, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'Strict',
+                    expires: expiresAt,
+                    path: '/'
+                });
 
-            if (user.status !== 'active') {
-                return c.json({ success: false, error: 'Account is not active' }, 403);
-            }
-
-            // Generate Tokens
-            const accessToken = generateAccessToken({ sub: user._id, role: user.role, email: user.email });
-            const refreshTokenStr = generateRefreshToken({ userId: user._id }); // Opaque to client, but JWT internally
-
-            // Store Refresh Token
-            const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-
-            await RefreshToken.create({
-                token: refreshTokenStr,
-                userId: user._id,
-                clientId: 'web', // Default client
-                expiresAt,
-                scope: user.scopes
-            });
-
-            // Update Last Login
-            user.lastLogin = new Date();
-            await user.save();
-
-            // Set HttpOnly Cookie
-            setCookie(c, 'refreshToken', refreshTokenStr, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Strict',
-                expires: expiresAt,
-                path: '/'
-            });
-
-            return c.json({
-                success: true,
-                message: 'Login successful',
-                data: {
-                    accessToken,
-                    expiresIn: 900,
-                    user: {
-                        id: user._id,
-                        email: user.email,
-                        fullName: user.fullName,
-                        role: user.role,
-                        permissions: user.scopes // Assuming scopes map to permissions
+                return c.json({
+                    success: true,
+                    message: 'Login successful',
+                    data: {
+                        accessToken,
+                        expiresIn: 900,
+                        user: {
+                            id: user._id,
+                            email: user.email,
+                            fullName: user.fullName,
+                            role: user.role,
+                            permissions: user.scopes // Assuming scopes map to permissions
+                        }
                     }
+                });
+            } catch (err: any) {
+                if (err.message === 'Invalid credentials') {
+                    return c.json({ success: false, error: 'Invalid credentials' }, 401);
                 }
-            });
+                if (err.message === 'Account is not active') {
+                    return c.json({ success: false, error: 'Account is not active' }, 403);
+                }
+                throw err;
+            }
 
         } catch (error: any) {
             console.error('Login Error:', error);
@@ -124,39 +88,20 @@ export class AuthController {
     static async refresh(c: Context) {
         try {
             const refreshTokenStr = getCookie(c, 'refreshToken');
-            if (!refreshTokenStr) {
-                return c.json({ success: false, error: 'Refresh token not found' }, 401);
+
+            try {
+                const result = await AuthService.refreshAccessToken(refreshTokenStr || '');
+                return c.json({
+                    success: true,
+                    data: {
+                        accessToken: result.accessToken,
+                        expiresIn: 900
+                    }
+                });
+            } catch (err: any) {
+                const status = (err.message === 'Refresh token required' || err.message === 'Invalid refresh token') ? 401 : 403;
+                return c.json({ success: false, error: err.message }, status);
             }
-
-            const decoded = verifyRefreshToken(refreshTokenStr);
-            if (!decoded) {
-                return c.json({ success: false, error: 'Invalid refresh token signature' }, 403);
-            }
-
-            const tokenDoc = await RefreshToken.findOne({ token: refreshTokenStr });
-            if (!tokenDoc || tokenDoc.revokedAt || new Date() > tokenDoc.expiresAt) {
-                return c.json({ success: false, error: 'Token expired or revoked' }, 403);
-            }
-
-            // check user
-            const user = await User.findById(tokenDoc.userId);
-            if (!user) {
-                return c.json({ success: false, error: 'User not found' }, 404);
-            }
-
-            // Rotate Refresh Token? Plan doesn't explicitly mandate rotation but it's good practice. 
-            // For now, simpler implementation: just issue new access token. 
-            // The plan says "Scope: Single refresh endpoint", "Used for: Getting new access tokens".
-
-            const newAccessToken = generateAccessToken({ sub: user._id, role: user.role, email: user.email });
-
-            return c.json({
-                success: true,
-                data: {
-                    accessToken: newAccessToken,
-                    expiresIn: 900
-                }
-            });
 
         } catch (error: any) {
             return c.json({ success: false, error: 'Invalid or expired refresh token' }, 403);
@@ -166,9 +111,7 @@ export class AuthController {
     static async logout(c: Context) {
         try {
             const refreshTokenStr = getCookie(c, 'refreshToken');
-            if (refreshTokenStr) {
-                await RefreshToken.deleteOne({ token: refreshTokenStr });
-            }
+            await AuthService.logout(refreshTokenStr || '');
 
             deleteCookie(c, 'refreshToken');
 
@@ -176,5 +119,24 @@ export class AuthController {
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 500);
         }
+    }
+
+    static async getProfile(c: Context) {
+        // User should already be attached by auth middleware
+        const user = c.get('user');
+
+        if (!user) {
+            return c.json({ success: false, error: 'User not found' }, 404);
+        }
+
+        // Return user profile (exclude sensitive data)
+        return c.json({
+            success: true,
+            data: {
+                id: user.sub || user.userId || user._id, // Adapt based on what middleware sets
+                email: user.email,
+                role: user.role
+            }
+        });
     }
 }

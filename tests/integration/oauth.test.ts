@@ -4,6 +4,7 @@ import User from '../../src/models/User';
 import OAuthClient from '../../src/models/OAuthClient';
 import { generateCodeChallenge } from '../../src/utils/crypto';
 import app from '../../src/index';
+import { AuthService } from '../../src/services/authService';
 
 // We need to connect to the DB for tests
 // In a real scenario, we'd use a test DB or bun-mongodb-memory-server
@@ -26,10 +27,12 @@ describe('OAuth 2.0 Flow', () => {
         await OAuthClient.deleteMany({});
 
         // Seed
+        const passwordHash = await AuthService.hashPassword('password123');
         await User.create({
             username: 'testu',
             email: 'test@example.com',
-            password: 'password123',
+            passwordHash,
+            fullName: 'Test User',
             role: 'user',
             scopes: ['read:chat']
         });

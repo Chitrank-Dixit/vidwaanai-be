@@ -17,6 +17,7 @@ import { initSocket } from './socket';
 dotenv.config();
 
 const app = new OpenAPIHono();
+export { app };
 
 // Security Middleware
 app.use('*', secureHeaders());
@@ -28,7 +29,9 @@ app.use('*', rateLimiter({
 }));
 
 // Connect to Database
-connectDB();
+if (process.env.NODE_ENV !== 'test') {
+    connectDB();
+}
 
 // Middleware
 app.use('*', logger());
