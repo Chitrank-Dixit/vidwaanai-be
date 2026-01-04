@@ -5,18 +5,26 @@ export const testRequest = async (path: string, options?: RequestInit) => {
 };
 
 export async function createTestUser(userData: any = {}) {
-    // We can use the service or direct DB insertion here. 
-    // Direct DB is safer to avoid circular dependencies if testing auth service.
-    // Importing User model
     const { default: User } = await import('../../src/models/User');
+    const { AuthService } = await import('../../src/services/authService'); // Dynamic import to avoid cycles if any
 
-    const defaultData = {
-        email: 'test@example.com',
-        password: 'Password123!',
-        fullName: 'Test User',
-        preferredLanguage: 'en'
+    const email = userData.email || 'test@example.com';
+    const password = userData.password || 'Password123!';
+    const username = userData.username || email.split('@')[0];
+
+    const passwordHash = await AuthService.hashPassword(password);
+
+    const data = {
+        email,
+        username,
+        fullName: userData.fullName || 'Test User',
+        passwordHash,
+        status: 'active',
+        ...userData
     };
-    const data = { ...defaultData, ...userData };
+    // Remove plain password if it was passed in "userData" but meant for hashing
+    delete data.password;
+
     const user = await User.create(data);
     return user;
 }

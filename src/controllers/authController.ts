@@ -120,4 +120,23 @@ export class AuthController {
             return c.json({ success: false, error: error.message }, 500);
         }
     }
+
+    static async getProfile(c: Context) {
+        // User should already be attached by auth middleware
+        const user = c.get('user');
+
+        if (!user) {
+            return c.json({ success: false, error: 'User not found' }, 404);
+        }
+
+        // Return user profile (exclude sensitive data)
+        return c.json({
+            success: true,
+            data: {
+                id: user.sub || user.userId || user._id, // Adapt based on what middleware sets
+                email: user.email,
+                role: user.role
+            }
+        });
+    }
 }

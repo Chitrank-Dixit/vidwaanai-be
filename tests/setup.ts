@@ -16,8 +16,18 @@ global.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     if (urlStr.includes('agent/query')) {
         return new Response(JSON.stringify({
             answer: 'Mocked Agent Answer',
+            confidence: 0.9,
             sources: [],
             context: []
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    if (urlStr.includes('agent/session/create')) {
+        return new Response(JSON.stringify({
+            session_id: 'mock-session-id-123',
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
